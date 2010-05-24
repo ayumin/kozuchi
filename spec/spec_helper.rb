@@ -50,4 +50,18 @@ def to_sjis(str)
   NKF.nkf('-m0 -x -Ws', str)
 end
 
+# Fixtures.identify と打つのがかったるいので
+class Symbol
+  def to_id
+    Fixtures.identify(self)
+  end
+end
+
 include AuthenticatedTestHelper
+
+class ActionController::TestRequest
+  def session_options_with_session_key
+    {:key => '_session_id'}.merge(session_options_without_session_key)
+  end
+  alias_method_chain :session_options, :session_key
+end

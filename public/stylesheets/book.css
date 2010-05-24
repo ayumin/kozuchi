@@ -1,5 +1,6 @@
 @charset "utf-8";
 
+
 /* ============== 共通情報　=============== */
 
 /* 上下の margin に関する汎用部品 */
@@ -46,6 +47,11 @@
   vertical-align: top;
   padding-top: 1em;
   padding-bottom: 1em;
+}
+
+table.horizontal th, table.horizontal td {
+  border-bottom: 2px solid #FFFFF9;
+  padding-bottom: 4px;
 }
 
 /* number fields */
@@ -222,8 +228,20 @@ ul {
 }
 
 .jump {
+  font-size: 80%;
   width:2em;
   text-align: right;
+  white-space: nowrap;
+}
+
+.icon_to_deal {
+  width: 16px;
+  text-align :center;
+  white-space: nowrap;
+}
+.icon_to_deal a {
+  text-decoration: none;
+  display: block;
 }
 
 input.readonly {
@@ -436,4 +454,18 @@ p.deprecated {
 }
 #money_counting .field input {
   text-align: right;
+}
+#deal_forms .entry div {
+  float: left;
+}
+#deal_forms .errorExplanation {
+  border: 1px solid orange;
+  padding: 4px;
+}
+#deal_forms .errorExplanation h2 {
+  font-size: 100%;
+}
+/* 精算 */
+.book tbody tr.disabled td {
+  background-color: #dddddd;
 }

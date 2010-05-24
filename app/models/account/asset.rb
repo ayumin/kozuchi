@@ -1,4 +1,5 @@
 class Account::Asset < Account::Base
+
   BASIC_KINDS = {
     :cache =>             {:name => '現金', :banking => true},
     :banking_facility =>  {:name => '金融機関口座', :banking => true},
@@ -41,9 +42,11 @@ class Account::Asset < Account::Base
   # 期間内の不明金合計（ーなら支出）を得る。
   # 最初の残高記入に伴うamountは不明金扱いしない。
   def unknown_flow(start_date, end_date)
-    entries.sum(:amount,
-      :joins => "inner join deals on account_entries.deal_id = deals.id",
-      :conditions => ["deals.type = 'Balance' and confirmed = ? and deals.date >= ? and deals.date < ? and account_entries.initial_balance = ?", true, start_date, end_date, false]) || 0
+    balances.without_initial.date_from(start_date).before(end_date).sum(:amount)
+
+#    entries.sum(:amount,
+#      :joins => "inner join deals on account_entries.deal_id = deals.id",
+#      :conditions => ["deals.type = 'Balance' and confirmed = ? and deals.date >= ? and deals.date < ? and account_entries.initial_balance = ?", true, start_date, end_date, false]) || 0
   end
 
   # ---------- 口座種別の静的属性を設定するためのメソッド群
@@ -107,14 +110,5 @@ class Account::RuleAssociatedAccountException < Exception
   end
   def self.new_message(account_name)
     "「#{account_name}」は精算口座として使われているため削除できません。"
-  end
-end
-
-class Account::IllegalClassChangeException < Exception
-  def self.new_message(account_name, illegal_asset_type_name)
-    "「#{account_name}」を#{illegal_asset_type_name}に変更することはできません。"
-  end
-  def initialize(account_name, illegal_asset_type_name)
-    super self.class.new_message(account_name, illegal_asset_type_name)
   end
 end

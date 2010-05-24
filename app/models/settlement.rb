@@ -3,14 +3,14 @@ class Settlement < ActiveRecord::Base
   belongs_to :account, :class_name => 'Account::Base', :foreign_key => 'account_id'
 
   has_many :target_entries,
-           :class_name => 'AccountEntry',
+           :class_name => 'Entry::General',
            :foreign_key => 'settlement_id',
            :order => 'deals.date, deals.daily_seq',
            :include => :deal,
            :dependent => :nullify
 
   has_one  :result_entry,
-           :class_name => 'AccountEntry',
+           :class_name => 'Entry::General',
            :foreign_key => 'result_settlement_id',
            :include => :deal
 
@@ -61,18 +61,18 @@ class Settlement < ActiveRecord::Base
       # この精算にひもづいた entry に対応する entryを全部これにひもづける
       for e in target_entries
         # 本来あるはずのリンクがない（先方が故意に消したなど）場合は新しく作る
-        e.request_linking unless e.linked_account_entry
+        e.ensure_linking(target_account.user)
         submitted.target_entries << e.linked_account_entry
       end
       # この精算の result_entry のひもづけ
       raise "異常なデータです。精算取引がありません。" unless self.result_entry
-      result_entry.request_linking unless result_entry.linked_account_entry
+      result_entry.ensure_linking(target_account.user) unless result_entry.linked_account_entry
       submitted.result_entry = result_entry.linked_account_entry
       
       self.submitted_settlement_id = submitted.id
       self.save!
     end
-    
+
     submitted
   end
   
@@ -106,17 +106,20 @@ class Settlement < ActiveRecord::Base
         plus_account_id = self.account_id
         minus_account_id = self.result_partner_account_id
       end
-      result_deal = Deal.new(
-        :minus_account_id => minus_account_id,
-        :plus_account_id => plus_account_id,
-        :amount => amount.abs,
-        :user_id => self.user_id,
+      result_deal = Deal::General.new(
+        :debtor_entries_attributes => [{:account_id => plus_account_id, :amount => amount.abs}],
+        :creditor_entries_attributes => [{:account_id => minus_account_id, :amount => amount.abs*-1}],
+#        :minus_account_id => minus_account_id,
+#        :plus_account_id => plus_account_id,
+ #       :amount => amount.abs,
+#        :user_id => self.user_id,
         :date => self.result_date,
         :summary => self.name,
         :confirmed => true # false にすると、相手方の操作によって消されてしまう。リスク低減のためtrueにする      
       )
+      result_deal.user_id = user_id # TODO: こうでないとだめなことを確認
       result_deal.save!
-      self.result_entry = result_deal.account_entries.detect{|e| e.account_id.to_s == self.account_id.to_s}
+      self.result_entry = result_deal.entries.detect{|e| e.account_id.to_s == self.account_id.to_s}
     end
     self.result_entry.save!
   end
@@ -136,7 +139,7 @@ class Settlement < ActiveRecord::Base
     # 対象取引を追加していく
     # TODO: 未確定などまずいやつは追加を禁止したい
     for deal_id in deal_ids
-      entry = AccountEntry.find(:first, :include => :deal, :conditions => ["deals.user_id = ? and deals.id = ? and account_id = ?", user_id, deal_id, account.id])
+      entry = Entry::General.find(:first, :include => :deal, :conditions => ["deals.user_id = ? and deals.id = ? and account_id = ?", user_id, deal_id, account.id])
       next unless entry
       target_entries << entry
     end

@@ -1,12 +1,12 @@
 <div class="top_box">
   <div class="form_box">
     <% if @friends.size > 0%>
-      <% form_tag account_links_path do %>
-        <%= h @user.login_id %>
+      <% form_tag settings_account_links_path do %>
+        <%= h current_user.login %>
         <span>さんの</span>
         <%= select_tag :account_id, options_from_collection_for_select(@accounts, :id, :name_with_asset_type) %>
         <span>へ記入をしたら<br />
-        <%= select_tag :linked_user_login, options_from_collection_for_select(@friends, :login_id, :login_id) %>
+        <%= select_tag :linked_user_login, options_from_collection_for_select(@friends, :login, :login) %>
         <span>さんの</span>
         <%= text_field_tag(:linked_account_name, "", :size => 16, :class => "text") %>
         <span>へも連携記入するようにする</span><br/>
@@ -42,10 +42,10 @@
           <% end %>
           <td>
             <% if linked_account_summary[:to] %>
-              <span>→</span> （<%= link_to "解除", account_link_path(:account_id => account.id), :method => :delete, :confirm => "「#{linked_account_summary[:name_with_user]}」への連携書き込みを行わないようにします。よろしいですか？" %>）<br />
+              <span>→</span> （<%= link_to "解除", settings_account_link_path(:account_id => account.id), :method => :delete, :confirm => "「#{linked_account_summary[:name_with_user]}」への連携書き込みを行わないようにします。よろしいですか？" %>）<br />
             <% end %>
             <% if linked_account_summary[:from] %>
-              <span>←</span> （<%= link_to "解除", account_link_request_path(:account_id => account.id, :id => linked_account_summary[:request_id]), :method => :delete, :confirm => "「#{linked_account_summary[:name_with_user]}」からの連携書き込みを行わないようにします。よろしいですか？" %>）<br />
+              <span>←</span> （<%= link_to "解除", settings_account_link_request_path(:account_id => account.id, :id => linked_account_summary[:request_id]), :method => :delete, :confirm => "「#{linked_account_summary[:name_with_user]}」からの連携書き込みを行わないようにします。よろしいですか？" %>）<br />
             <% end %>
           </td>
           <td>

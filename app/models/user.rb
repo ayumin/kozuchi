@@ -1,10 +1,10 @@
 # ユーザーに紐づくロジックは多いので、機能別にモジュールを記述してincludeする
-
-
 require 'digest/sha1'
 class User < ActiveRecord::Base
   include User::Friend
   include User::Mobile
+
+  delegate :uses_complex_deal?, :bookkeeping_style?, :to => :preferences
 
   has_many  :single_logins, :dependent => :destroy
   has_many  :settlements, :dependent => :destroy
@@ -14,7 +14,20 @@ class User < ActiveRecord::Base
   has_many  :assets, :class_name => "Account::Asset", :order => "sort_key"
   has_many  :flow_accounts, :class_name => "Account::Base", :conditions => "asset_kind is null", :order => "sort_key"
 #  has_many  :accounts, :class_name => 'Account::Base', :include => [:link_requests, :link, :any_entry], :order => 'accounts.sort_key' do
+
+  ACCOUNTS_OPTIONS_ASC = ['Account::Asset', 'Account::Income', 'Account::Expense']
+  ACCOUNTS_OPTIONS_DESC = ['Account::Expense', 'Account::Asset', 'Account::Income']
   has_many  :accounts, :class_name => 'Account::Base', :order => 'accounts.sort_key' do
+
+    def grouped_options(is_asc = true)
+      grouped = group_by{|a| a.class}.map{|key, value| [key, value.map{|a| [a.name, a.id]}]}
+      order = is_asc ? ACCOUNTS_OPTIONS_ASC : ACCOUNTS_OPTIONS_DESC
+      grouped.sort!{|a, b|
+        # 昇順／降順が対照的でないため独自ロジック
+        order.index(a[0].name) <=> order.index(b[0].name)
+      }
+      grouped.map{|g| g[0] = g[0].human_name; g}
+    end
 
     # 指定した日の最初における指定した口座の残高合計を得る
     def balance_sum(date, conditions = nil)
@@ -120,15 +133,20 @@ class User < ActiveRecord::Base
 
   include User::AccountLinking
   
-  has_many :deals, :class_name => 'BaseDeal', :include => [:account_entries], :extend => User::DealsExtension
-  has_many :account_entries
+  has_many :deals, :class_name => 'Deal::Base', :extend => User::DealsExtension
+  # 作成用
+  has_many :general_deals, :class_name => "Deal::General", :foreign_key => "user_id"
+  has_many :balance_deals, :class_name => "Deal::Balance", :foreign_key => "user_id"
+
+  has_many :entries, :class_name => "Entry::Base"
   
   def default_asset
     assets.first
   end
 
-  def default_asset_other_than(exclude)
-    assets.detect{|a| a.id.to_i != exclude.id.to_i}
+  # TODO: 賢くしたい
+  def default_asset_other_than(*excludes)
+    assets.detect{|a| !excludes.include?(a)}
   end
 
   # all logic has been moved into login_engine/lib/login_engine/authenticated_user.rb
@@ -142,7 +160,7 @@ class User < ActiveRecord::Base
   end
   
   def deal_exists?(date)
-    BaseDeal.exists?(self.id, date)
+    Deal::Base.exists?(self.id, date)
   end
   
 
@@ -355,7 +373,7 @@ class User < ActiveRecord::Base
   private
   def destroy_deals
     # アカウントを削除する場合、口座が消せるようにするためにまずDealを消す
-    BaseDeal.find_all_by_user_id(self.id).each{|d| d.destroy }
+    Deal::Base.find_all_by_user_id(self.id).each{|d| d.destroy }
   end
   def destroy_accounts
     # アカウントを削除する場合の口座削除処理。dependentだと順序が思うようでないので自前でやる

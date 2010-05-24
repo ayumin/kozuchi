@@ -1,7 +1,7 @@
 require File.dirname(__FILE__) + '/../test_helper'
 
 # Userオブジェクトの残高・移動系メソッドの動作を確認するテスト
-class UserBalanceFlowTest < Test::Unit::TestCase
+class UserBalanceFlowTest < ActiveSupport::TestCase
   set_fixture_class  :accounts => Account::Base
   
   # ------------------  set_up  ----------------------
@@ -43,7 +43,7 @@ class UserBalanceFlowTest < Test::Unit::TestCase
     assert_equal 4000, balance_sum(@first_user, 3, 21, "accounts.type != 'Income' and accounts.type != 'Expense'")
     assert_equal 4000, balance_sum(@first_user, 3, 31, "accounts.type != 'Income' and accounts.type != 'Expense'")
 
-    assert ib.account_entries.first.initial_balance?
+    assert ib.entries.first.initial_balance?
     
     create_deal 4, 1, @cache, @food, 300
     create_balance 4, 30, @cache, 1000
@@ -70,14 +70,14 @@ class UserBalanceFlowTest < Test::Unit::TestCase
     # 4/1  食費 300  (残高3700)
     create_deal 3, 20, @cache, @food, 500
     ib = create_balance 3, 31, @cache, 4000
-    assert ib.account_entries.first.initial_balance?
+    assert ib.entries.first.initial_balance?
 
     create_deal 4, 1, @cache, @food, 300
 
     ib2 = create_balance 3, 19, @cache, 0
-    assert ib2.account_entries.first.initial_balance?
+    assert ib2.entries.first.initial_balance?
     ib.reload
-    assert_equal false, ib.account_entries.first.initial_balance?
+    assert_equal false, ib.entries.first.initial_balance?
 
     # 3/1の資産合計は0
     assert_equal 0, balance_sum(@first_user, 3, 1, "accounts.type != 'Income' and accounts.type != 'Expense'")
@@ -102,7 +102,7 @@ class UserBalanceFlowTest < Test::Unit::TestCase
     #
     create_deal 3, 20, @cache, @food, 500
     ib = create_balance 3, 31, @cache, 4000
-    assert ib.account_entries.first.initial_balance?
+    assert ib.entries.first.initial_balance?
 
     create_deal 4, 1, @cache, @food, 300
 
@@ -112,12 +112,12 @@ class UserBalanceFlowTest < Test::Unit::TestCase
     ib2.date = new_date
     ib2.save!
 
-    assert_equal true, ib2.account_entries.first.initial_balance?
+    assert_equal true, ib2.entries.first.initial_balance?
     assert_equal 1000, ib2.amount
 
     ib.reload
     assert_equal ib2.date, ib2.entry.date
-    assert_equal false, ib.account_entries.first.initial_balance?
+    assert_equal false, ib.entries.first.initial_balance?
     assert_equal 3500, ib.amount
 
     # 3/1の資産合計は1000
@@ -151,7 +151,7 @@ class UserBalanceFlowTest < Test::Unit::TestCase
   def test_balance_in_multil_user
     create_deal 3, 1, @bank, @food, 1000
     create_balance 3, 3, @bank, 4000
-    create_deal 3, 1, @second_cache, @food, 1000
+    create_deal 3, 1, @second_cache, @second_food, 1000
     create_balance 3, 3, @second_cache, 2000
     
     assert_equal 4000, balance(@first_user, 3, 4, @bank)
@@ -209,13 +209,23 @@ class UserBalanceFlowTest < Test::Unit::TestCase
   end
 
   private
+  # TODO
   def create_deal(month, day, from, to, amount)
     attributes = {:summary => "#{month}/#{day}の買い物", :amount => amount, :minus_account_id => from.id, :plus_account_id => to.id, :user_id => to.user_id, :date => Date.new(@year, month, day)}
-    Deal.create!(attributes)
+    user_id = attributes.delete(:user_id)
+    amount = attributes.delete(:amount)
+    plus_account_id = attributes.delete(:plus_account_id)
+    minus_account_id = attributes.delete(:minus_account_id)
+    deal = Deal::General.new(attributes)
+    deal.user_id = user_id
+    deal.debtor_entries_attributes = [{:account_id => plus_account_id, :amount => amount}]
+    deal.creditor_entries_attributes = [{:account_id => minus_account_id, :amount => amount.to_i * -1}]
+    deal.save!
+    deal
   end
   
   def create_balance(month, day, account, balance)
-    Balance.create!(:summary => "", :balance => balance, :account_id => account.id, :user_id => account.user_id, :date => Date.new(@year, month, day))
+    Deal::Balance.create!(:summary => "", :balance => balance, :account_id => account.id, :user_id => account.user_id, :date => Date.new(@year, month, day))
   end
   
   def balance_sum(user, month, day, conditions = "accounts.type != 'Income' and accounts.type != 'Expense'")
@@ -241,7 +251,7 @@ class UserBalanceFlowTest < Test::Unit::TestCase
   end
   
   def unknown(user, month, account)
-    unknowns = user.accounts.unknowns(*date_range(month))    
+    unknowns = user.accounts.unknowns(*date_range(month))
     unknowns.detect{|a| a.id == account.id}.unknown
   end
     

@@ -10,7 +10,7 @@ describe User do
     end
     describe "Dealがないとき" do
       it "成功する" do
-        raise "前提エラー：Dealがある" unless Deal.find_all_by_user_id(@user.id).empty?
+        raise "前提エラー：Dealがある" unless Deal::General.find_all_by_user_id(@user.id).empty?
         @user.destroy
         User.find_by_id(@user.id).should be_nil
       end
@@ -23,7 +23,7 @@ describe User do
         @user.destroy
         User.find_by_id(@user.id).should be_nil
         # TODO AccountLinkRequest
-        [BaseDeal, AccountEntry, AccountLink, AccountLinkRequest, Account::Base, Friend::Permission, Friend::Request, Settlement, Preferences].each do |klass|
+        [Deal::Base, Entry::Base, AccountLink, AccountLinkRequest, Account::Base, Friend::Permission, Friend::Request, Settlement, Preferences].each do |klass|
           klass.find_by_user_id(@user.id).should be_nil
         end
 #        AccountLinkRequest.find_by_sender_id(@user.id).should be_nil
@@ -40,7 +40,7 @@ describe User do
         s.result_partner_account_id = accounts(:taro_cache).id # TODO: わからなかった。Specほしい
         s.result_date = Date.new(2009, 4, 1) # TODO: 同上
         s.name = "テスト"
-        s.target_entries << d.account_entries.detect{|e| e.account_id == accounts(:taro_hanako).id}
+        s.target_entries << d.entries.detect{|e| e.account_id == accounts(:taro_hanako).id}
         s.save!
       end
       it "成功する" do
@@ -54,7 +54,13 @@ describe User do
   end
 
   def new_deal(month, day, from, to, amount, year = 2008)
-    d = Deal.new(:summary => "#{month}/#{day}のデータ", :amount => amount, :minus_account_id => from.id, :plus_account_id => to.id, :date => Date.new(year, month, day))
+    d = Deal::General.new(:summary => "#{month}/#{day}のデータ",
+#      :amount => amount,
+      :debtor_entries_attributes => [{:account_id => to.id, :amount => amount}],
+      :creditor_entries_attributes => [{:account_id => from.id, :amount => amount.to_i * -1}],
+#      :minus_account_id => from.id,
+#      :plus_account_id => to.id,
+      :date => Date.new(year, month, day))
     d.user_id = to.user_id
     d
   end

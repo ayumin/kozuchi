@@ -1,18 +1,61 @@
+YEAR_MONTH_REQUIREMENTS = {:year => /[0-9]*|_YEAR_/, :month => /[1-9]|10|11|12|_MONTH_/}
 ActionController::Routing::Routes.draw do |map|
 
   # settings
   map.namespace :settings do |settings|
-    settings.resources :incomes
-    settings.connect "incomes", :controller => "incomes", :action => "update_all", :conditions => {:method => :put}
-    settings.resources :expenses
-    settings.connect "expenses", :controller => "expenses", :action => "update_all", :conditions => {:method => :put}
-    settings.resources :assets
-    settings.connect "assets", :controller => "assets", :action => "update_all", :conditions => {:method => :put}
-    settings.resources :single_logins
+    # 勘定
+    settings.resources :incomes, :collection => {:update_all => :put}
+    settings.resources :expenses, :collection => {:update_all => :put}
+    settings.resources :assets, :collection => {:update_all => :put}
+
+    # 連携
+    settings.resources :account_link_requests, :as => :link_requests, :path_prefix => 'settings/accounts/:account_id', :only => [:destroy]
+    # account_links
+    settings.with_options :controller => 'account_links' do |account_links|
+      # destroy に :id がいらない、create時はaccount_idをクエリーで渡したいなど変則的
+      account_links.resource :account_link, :as => :links, :path_prefix => 'settings/accounts/:account_id', :only => [:destroy]
+      account_links.resources :account_links, :as => :links, :path_prefix => 'settings/accounts', :only => [:index, :create]
+    end
+        # partner_accounts
+    settings.with_options :controller => 'partner_accounts' do |partner_accounts|
+      partner_accounts.resources :partner_accounts, :as => :partners, :path_prefix => 'settings/accounts', :only => [:index]
+      partner_accounts.resource :partner_account, :as => :partner, :path_prefix => 'settings/accounts/:account_id', :only => [:update]
+    end
+
+    # フレンド
+    settings.resource :friend_rejection, :as => :rejection, :path_prefix => "settings/friends/:target_login", :only => [:create, :destroy]
+    settings.resource :friend_acceptance, :as => :acceptance, :path_prefix => "settings/friends", :only => [:create, :destroy] # createでは クエリーで target_login を渡したいため
+    settings.resources :friends, :only => [:index]
+
+    # カスタマイズ
+    settings.resource :preferences, :only => [:show, :update]
+
+    # シングルログイン
+    settings.resources :single_logins, :only => [:index, :create, :destroy]
   end
 
+  # DealsController
+  map.with_options :controller => 'deals' do |deals|
+    deals.resources :deals, :only => [:edit, :update, :destroy], :member => {:confirm => :put}, :sub_resources => {:entries => {:only => [:create]}}
 
-  map.resource :mobile, :member => {"confirm_destroy" => :get}
+    deals.general_deals 'general_deals', :action => 'create_general_deal', :conditions => {:method => :post}
+    deals.balance_deals 'balance_deals', :action => 'create_balance_deal', :conditions => {:method => :post}
+    deals.complex_deals 'complex_deals', :action => 'create_complex_deal', :conditions => {:method => :post}
+    deals.new_general_deal 'general_deals/new', :action => 'new_general_deal', :conditions => {:method => :get}
+    deals.new_balance_deal 'balance_deals/new', :action => 'new_balance_deal', :conditions => {:method => :get}
+    deals.new_complex_deal 'complex_deals/new', :action => 'new_complex_deal', :conditions => {:method => :get}
+
+#    deals.resources :deals
+    deals.monthly_deals 'deals/:year/:month', :action => 'monthly', :conditions => {:method => :get}, :requirements => YEAR_MONTH_REQUIREMENTS
+    # TODO: 変更
+  end
+
+  # DealSuggestionsController
+  map.resources :deal_suggestions, :as => :suggestions, :path_prefix => 'deals', :only => [:index]
+
+
+
+  map.resource :mobile_device, :member => {"confirm_destroy" => :get}, :controller => "mobiles"
 #  map.mobile "/mobile", :controller => "mobiles", :action => "create_or_update", :codnitions => {:method => :put}
 #  map.confirm_destroy_mobile "/mobile/confirm_destroy", :controller => "mobiles", :action => "confirm_destroy", :conditions => {:method => :get}
 #  map.connect "/mobile", :controller => "mobiles", :action => "destroy", :conditions => {:method => :delete}
@@ -40,65 +83,65 @@ ActionController::Routing::Routes.draw do |map|
 
   map.resource :user
 
-  # フレンド設定
-  map.resources :friends, :controller => "settings/friends", :path_prefix => "settings", :name_prefix => nil
-  map.resources :friend_rejections, :controller => "settings/friend_rejections", :path_prefix => "settings", :name_prefix => nil
-
-  # 口座連携設定
-  map.account_links "settings/accounts/links", :controller => "settings/account_links", :action => "index", :conditions => {:method => :get}
-  #map.connect "settings/account/:account_id/link", :controller => "settings/account_links", :action => "create_or_update", :conditions => {:method => :put}
-  #上記のようにしたいけどUI上面倒なので
-  map.connect "settings/accounts/links", :controller => "settings/account_links", :action => "create_or_update", :conditions => {:method => :post}
-  map.account_link "settings/account/:account_id/link", :controller => "settings/account_links", :action => "destroy", :conditions => {:method => :delete}
-  map.account_link_request "settings/account/:account_id/link_requests/:id", :controller => "settings/account_link_requests", :action => "destroy", :conditions => {:method => :delete}
-  #  map.resource :session
-
-  # The priority is based upon order of creation: first created -> highest priority.
-  
-  # Sample of regular route:
-  # map.connect 'products/:id', :controller => 'catalog', :action => 'view'
-  # Keep in mind you can assign values other than :controller and :action
-
-  # Sample of named route:
-  # map.purchase 'products/:id/purchase', :controller => 'catalog', :action => 'purchase'
-  # This route can be invoked with purchase_url(:id => product.id)
-
   map.root :controller => "welcome"
   
 
-  # Settlements
-  map.resources :settlements, :collection => {:change_condition => :get}, :member => {:print_form => :get, :submit => :put}
-#  map.connect 'settlement/:id/settlement.csv', :controller => 'settlements', :format => 'csv', :action => 'print_form'
-#  map.connect 'settlement/:id', :controller => 'settlements', :action => 'view'
- # map.connect 'settlement/:id/:action', :controller => 'settlements'
+  # SettlementsController
+  map.with_options :controller => 'settlements' do |settlements|
+    settlements.new_settlement_target_deals 'settlements/new/target_deals', :action => :target_deals, :conditions => {:method => :get}
+    settlements.resources :settlements, :only => [:index, :show, :new, :create, :destroy],
+      :member => {:print_form => :get, :submit => :put}
+  end
+  # AccountDealsController
+  # TODO: deal をつけるのがうざいがバッティングがあるためいったんつける
+  map.with_options :controller => 'account_deals' do |account_deals|
+    account_deals.resources :account_deals, :as => :deals, :path_prefix => 'accounts', :only => [:index]
+    account_deals.with_options :path_prefix => 'accounts/:account_id' do |under_account|
+      under_account.monthly_account_deals 'deals/:year/:month', :action => 'monthly', :requirements => YEAR_MONTH_REQUIREMENTS
+      under_account.account_balance 'balance', :action => "balance"
+      under_account.account_general_deals 'general_deals', :action => 'create_general_deal', :conditions => {:method => :post}
+      ['creditor_general_deal', 'debtor_general_deal', 'balance_deal'].each do |deal_type|
+        under_account.send("account_#{deal_type.pluralize}", "#{deal_type.pluralize}", :action => "create_#{deal_type}", :conditions => {:method => :post})
+        under_account.send("new_account_#{deal_type}", "new_#{deal_type}", :action => "new_#{deal_type}", :conditions => {:method => :get})
+        under_account.send("edit_account_#{deal_type}", "#{deal_type.pluralize}/:id", :action => "edit_#{deal_type}", :conditions => {:method => :get})
+      end
+    end
+  end
 
-  map.connect ':controller', :action => 'index', :conditions => {:method => :get}
+  # AssetsController
+  map.with_options :controller => 'assets' do |assets|
+    assets.resources :assets, :only => [:index]
+    assets.monthly_assets 'assets/:year/:month', :action => 'monthly', :requirements => YEAR_MONTH_REQUIREMENTS
+  end
 
+  # BalanceSheetController
+  map.with_options :controller => 'balance_sheet' do |balance_sheet|
+    balance_sheet.resource :balance_sheet, :only => [:show]
+    balance_sheet.monthly_balance_sheet 'balance_sheet/:year/:month', :action => 'monthly', :requirements => YEAR_MONTH_REQUIREMENTS
+  end
 
-  # Allow downloading Web Service WSDL as a file with an extension
-  # instead of a file named 'wsdl'
-  map.connect ':controller/service.wsdl', :action => 'wsdl'
+  # ProfitAndLossController
+  map.with_options :controller => 'profit_and_loss' do |profit_and_loss|
+    profit_and_loss.resource :profit_and_loss, :only => [:show]
+    profit_and_loss.monthly_profit_and_loss 'profit_and_loss/:year/:month', :action => 'monthly', :requirements => YEAR_MONTH_REQUIREMENTS
+  end
 
-  # account_deals
-  map.account_deals 'accounts/:account_id/deals/:year/:month', :action => 'monthly', :controller => 'account_deals', :requirements => {:year => /[0-9]*/, :month => /[1-9]|10|11|12/}
-  map.account_balance 'accounts/:account_id/balance', :action => "balance", :controller => "account_deals"
+  # MobileDealsController
+  map.with_options :controller => 'mobile_deals', :path_prefix => 'mobile' do |mobile_deals|
+    mobile_deals.mobile_daily_expenses 'expenses/:year/:month/:day', :action => 'daily_expenses', :conditions => {:method => :get}
+    mobile_deals.new_mobile_general_deal 'deals/general/new', :action => 'new_general_deal', :conditions => {:method => :get}
+    mobile_deals.mobile_general_deals 'deals/general', :action => 'create_general_deal', :conditions => {:method => :post}
+    mobile_deals.daily_created_mobile_deals 'deals/created/:year/:month/:day', :action => 'daily_created', :conditions => {:method => :get}
+  end
 
-  # deals, profit_and_loss
-  map.connect ':controller/:year/:month', :action => 'index',
-    :requirements => {:controller => /deals|profit_and_loss|assets|balance_sheet/,
-                      :year => /[0-9]*/, :month => /[0-9]*/}
-
-  map.daily_deals 'deals/:year/:month/:day', :action => 'daily', :controller => "deals"
-
-  # daily summary
-  map.daily_expenses ':year/:month/:day/expenses', :controller => "deals", :action => "expenses"
-  map.deal 'deals/:id', :controller => "deals", :action => "destroy", :conditions => {:method => :delete}
-
-
+  # ExportController
   map.with_options(:controller => "export") do |export|
     export.export 'export', :action => "index"
     export.export_file 'export/:filename.:format', :action => "whole"
   end
+
+  # HelpController
+  map.connect 'help/:action', :controller => 'help'
 
   # Install the default route as the lowest priority.
   # TODO: except sessions, 

@@ -1,0 +1,24 @@
+  <div>
+    <%= f.text_field :summary, :size => "40", :tabindex => '10' %>
+    <div id="patterns"></div>
+  </div>
+  <div class="entry">
+    <% amount_field_proc, debtor_account_field_proc, creditor_account_field_proc = write_hiddens_and_get_simple_deal_procs(f) %>
+
+    <%= render :partial => "general_deal_form_contents_#{bookkeeping_style? ? 'bookkeeping_style' : 'kozuchi_style'}",
+      :locals => {
+        :amount_field_proc => amount_field_proc,
+        :debtor_account_field_proc => debtor_account_field_proc,
+        :creditor_account_field_proc => creditor_account_field_proc,
+        :tab_index => 10 # この次からはじまる
+      }
+    %>
+
+    <%= f.submit @deal.new_record? ? '記入' : '変更', :tablindex => "14", :class => 'button' %>
+    <% if !@deal.new_record? && current_user.uses_complex_deal? %>
+      <%= link_to_remote('複数記入にする' , :update => 'deal_editor', :url => {:action => 'edit', :id => @deal.id, :complex => true}, :method => :get, :complete => "location.hash = '#{@deal.id}';location.hash = 'top';" ) %>
+    <% end %>
+    <div style="clear:left;"></div>
+  </div>
+  <%= observe_field("deal_summary", :update => 'patterns', :frequency => 0.5, :with => 'keyword', :method => :get, :url => deal_suggestions_path )%>
+

@@ -92,7 +92,13 @@ class Account::BaseTest < ActiveSupport::TestCase
   
   # 使われていたら消せない
   def test_deletable_used
-    d = Deal.new(:user_id => users(:old).id, :minus_account_id => accounts(:first_cache).id, :plus_account_id => accounts(:deletable_one).id, :amount => 2000, :date => Date.new(2007, 1, 1), :summary => "", :confirmed => true)
+    d = Deal::General.new(:user_id => users(:old).id,
+#      :minus_account_id => accounts(:first_cache).id,
+#      :plus_account_id => accounts(:deletable_one).id,
+#      :amount => 2000,
+      :debtor_entries_attributes => [{:account_id => accounts(:deletable_one).id, :amount => 2000}],
+      :creditor_entries_attributes => [{:account_id => accounts(:first_cache).id, :amount => -2000}],
+      :date => Date.new(2007, 1, 1), :summary => "", :confirmed => true)
     d.save!
     a = accounts(:deletable_one)
     assert_equal false, a.deletable?
@@ -100,23 +106,6 @@ class Account::BaseTest < ActiveSupport::TestCase
     assert_equal Account::Base::UsedAccountException.new_message('口座', '貯金箱'), a.delete_errors[0]
   end
   
-
-  # ----- 削除のテスト
- 
-  # 使われていないものが消せるテスト
-  def test_delete
-    a = accounts(:deletable_one)
-    assert_nothing_raised {a.destroy}
-  end
-  
-  # データが使われていたら消せないことのテスト
-  def test_delete_used
-    d = Deal.new(:user_id => users(:old), :minus_account_id => accounts(:first_cache).id, :plus_account_id => accounts(:deletable_one).id, :amount => 2000, :date => Date.new(2007, 1, 1), :summary => "", :confirmed => true)
-    d.save!
-    a = accounts(:deletable_one)
-    assert_raise(Account::Base::UsedAccountException) {a.destroy}
-    assert_nothing_raised {Account::Base.find(a.id)}
-  end
 
  # 更新のテスト
 

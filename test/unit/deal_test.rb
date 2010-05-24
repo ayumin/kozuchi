@@ -1,10 +1,10 @@
 require File.dirname(__FILE__) + '/../test_helper'
 
-class DealTest < Test::Unit::TestCase
+class DealTest < ActiveSupport::TestCase
   
   # 取引保存時に、daily_seq が正しくつくことのテスト
   def test_daily_seq
-    Deal.delete_all
+    Deal::General.delete_all
     
     deal = create_deal(105, 4, 1)
     assert_equal 1, deal.daily_seq
@@ -43,7 +43,7 @@ class DealTest < Test::Unit::TestCase
     
     #日付と挿入ポイントがあっていないと例外が発生することを確認
     assert_raise(RuntimeError) do
-      create_deal(105, 4, 2, :insert_before => deal) # Deal.new(:summary => "おにぎり", :amount => "105", :minus_account_id => cache.id, :plus_account_id => food.id, :user_id => user.id, :date => Date.parse("2006/04/02"), :insert_before => deal)
+      create_deal(105, 4, 2, :insert_before => deal) # Deal::General.new(:summary => "おにぎり", :amount => "105", :minus_account_id => cache.id, :plus_account_id => food.id, :user_id => user.id, :date => Date.parse("2006/04/02"), :insert_before => deal)
     end
 
   end
@@ -91,7 +91,7 @@ class DealTest < Test::Unit::TestCase
   def test_initial_balance
     # 2008/5/1 に残高を記入して、4月末時点での残高を照合すると、同じ残高となる
     balance = create_balance(320000, 5, 1)
-    assert_equal 320000, balance.account_entries.first.amount
+    assert_equal 320000, balance.entries.first.amount
     assert_equal 320000, balance_before(5, 2)
     assert_equal 320000, balance_before(5, 1)
     # 5/1〜5/2の間の不明金は0
@@ -111,7 +111,7 @@ class DealTest < Test::Unit::TestCase
     assert_equal 2000, b.amount
     assert_equal 2000, balance_before(5, 12)
     # 5/10の取引を確認する
-    d.confirm
+    d.confirm!
     b.reload
     assert_equal 3800, b.amount
     assert_equal 2000, balance_before(5, 12)
@@ -120,9 +120,9 @@ class DealTest < Test::Unit::TestCase
   # 残高記入が削除できることのテスト
   def test_destroy_balance
     b1 = create_balance(2000, 5, 12)
-    b1 = Balance.find(b1.id)
+    b1 = Deal::Balance.find(b1.id)
     b2 = create_balance(2000, 5, 14)
-    b2 = Balance.find(b2.id)
+    b2 = Deal::Balance.find(b2.id)
     b2.destroy
     b1.destroy
   end  
@@ -141,13 +141,23 @@ class DealTest < Test::Unit::TestCase
   
   # 現金の残高記入をする
   def create_balance(balance, month, day)
-    Balance.create!(:summary => "", :balance => balance, :account_id => @cache.id, :user_id => @user.id, :date => Date.new(@year, month, day))
+    Deal::Balance.create!(:summary => "", :balance => balance, :account_id => @cache.id, :user_id => @user.id, :date => Date.new(@year, month, day))
   end
   
   # 現金→食費の取引記入をする
   def create_deal(amount, month, day, attributes = {})
-    attributes = {:summary => "#{month}/#{day}の買い物", :amount => amount, :minus_account_id => @cache.id, :plus_account_id => @food.id, :user_id => @user.id, :date => Date.new(@year, month, day)}.merge(attributes)
-    Deal.create!(attributes)
+    attributes = {:summary => "#{month}/#{day}の買い物",
+#      :amount => amount,
+#      :minus_account_id => @cache.id,
+#      :plus_account_id => @food.id,
+      :debtor_entries_attributes => [{:account_id => @food.id, :amount => amount}],
+      :creditor_entries_attributes => [{:account_id => @cache.id, :amount => amount.to_i * -1}],
+      :user_id => @user.id, :date => Date.new(@year, month, day)}.merge(attributes)
+    user_id = attributes.delete(:user_id)
+    deal = Deal::General.new(attributes)
+    deal.user_id = user_id
+    deal.save!
+    deal
   end
   
   # 残高を取得する

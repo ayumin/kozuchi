@@ -1,7 +1,23 @@
 # Methods added to this helper will be available to all templates in the application.
 module ApplicationHelper
   include LoginEngine
-  include TermHelper
+
+  def bookkeeping_style?
+    return false unless current_user
+    current_user.preferences.bookkeeping_style?
+  end
+
+  # deals などで副項目を扱う
+  def display_account_name(account)
+    names = h(account.name).split
+    name = names.shift
+
+    after_sub = ''
+    while sub = names.pop
+      after_sub = "<div class='sub_account_name'>#{sub}#{after_sub}</div>"
+    end
+    name << "<div class='sub_account_names'>#{after_sub}</div>"
+  end
 
   # 上部メニューで使う
   def link_to_menu_group(menu_group, path)
@@ -182,9 +198,9 @@ EOS
     return 'style="'+h(style_content)+'"'
   end
   
-  def format_deal(deal)
-    return "記入 #{deal.date}-#{deal.daily_seq}"
-  end
+#  def format_deal(deal)
+#    return "記入 #{deal.date}-#{deal.daily_seq}"
+#  end
   
   # 帳簿系表示ヘルパー
   # 一行を表示する　(table.book の下で呼ばれることを前提とする)
