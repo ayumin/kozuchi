@@ -1,7 +1,7 @@
 class AddDateAndDailySeqToAccountEntries < ActiveRecord::Migration
   def self.up
-    add_column :account_entries, :date, :date, :null => false
-    add_column :account_entries, :daily_seq, :integer, :null => false
+    add_column :account_entries, :date, :date #, :null => false
+    add_column :account_entries, :daily_seq, :integer #, :null => false
     # 紐付いているdealの値をコピーする
     for deal_id, date, daily_seq in execute "select id, date, daily_seq from deals"
       execute ActiveRecord::Base.sanitize_sql_array(

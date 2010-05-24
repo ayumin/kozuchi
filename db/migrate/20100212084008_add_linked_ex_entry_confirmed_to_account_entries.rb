@@ -2,7 +2,7 @@ class AddLinkedExEntryConfirmedToAccountEntries < ActiveRecord::Migration
   def self.up
     add_column :account_entries, :linked_ex_entry_confirmed, :boolean, :null => false, :default => false
 
-    execute "update account_entries inner join deals on account_entries.linked_ex_deal_id = deals.id set linked_ex_entry_confirmed = deals.confirmed"
+    execute "update account_entries set linked_ex_entry_confirmed = (select deals.confirmed from deals where account_entries.linked_ex_deal_id = deals.id);" 
   end
 
   def self.down
