@@ -12,16 +12,16 @@
 ActiveRecord::Schema.define(:version => 20100505211320) do
 
   create_table "account_entries", :force => true do |t|
-    t.integer "user_id",                   :default => 0
-    t.integer "account_id",                :default => 0
-    t.integer "deal_id",                   :default => 0
+    t.integer "user_id"
+    t.integer "account_id"
+    t.integer "deal_id"
     t.integer "amount"
     t.integer "balance"
     t.integer "settlement_id"
     t.integer "result_settlement_id"
     t.boolean "initial_balance",           :default => false, :null => false
-    t.date    "date",                                         :null => false
-    t.integer "daily_seq",                                    :null => false
+    t.date    "date"
+    t.integer "daily_seq"
     t.integer "linked_ex_entry_id"
     t.integer "linked_ex_deal_id"
     t.integer "linked_user_id"
@@ -29,11 +29,11 @@ ActiveRecord::Schema.define(:version => 20100505211320) do
     t.boolean "linked_ex_entry_confirmed", :default => false, :null => false
   end
 
-  add_index "account_entries", ["account_id"], :name => "account_entries_account_id_index"
-  add_index "account_entries", ["deal_id"], :name => "account_entries_deal_id_index"
-  add_index "account_entries", ["result_settlement_id"], :name => "account_entries_result_settlement_id_index"
-  add_index "account_entries", ["settlement_id"], :name => "account_entries_settlement_id_index"
-  add_index "account_entries", ["user_id"], :name => "account_entries_user_id_index"
+  add_index "account_entries", ["account_id"], :name => "index_account_entries_on_account_id"
+  add_index "account_entries", ["deal_id"], :name => "index_account_entries_on_deal_id"
+  add_index "account_entries", ["result_settlement_id"], :name => "index_account_entries_on_result_settlement_id"
+  add_index "account_entries", ["settlement_id"], :name => "index_account_entries_on_settlement_id"
+  add_index "account_entries", ["user_id"], :name => "index_account_entries_on_user_id"
 
   create_table "account_link_requests", :force => true do |t|
     t.integer  "account_id"
@@ -57,34 +57,29 @@ ActiveRecord::Schema.define(:version => 20100505211320) do
   add_index "account_links", ["target_ex_account_id"], :name => "index_account_links_on_target_ex_account_id"
 
   create_table "accounts", :force => true do |t|
-    t.integer "user_id",                          :default => 0,  :null => false
-    t.string  "name",               :limit => 32, :default => "", :null => false
+    t.integer "user_id",                          :null => false
+    t.string  "name",               :limit => 32, :null => false
     t.integer "sort_key"
     t.integer "partner_account_id"
     t.text    "type"
     t.string  "asset_kind"
   end
 
-  add_index "accounts", ["partner_account_id"], :name => "accounts_partner_account_id_index"
-  add_index "accounts", ["user_id"], :name => "accounts_user_id_index"
+  add_index "accounts", ["partner_account_id"], :name => "index_accounts_on_partner_account_id"
+  add_index "accounts", ["user_id"], :name => "index_accounts_on_user_id"
 
   create_table "deals", :force => true do |t|
-    t.string   "type",       :limit => 20, :default => "",   :null => false
-    t.integer  "user_id",                  :default => 0,    :null => false
+    t.string   "type",       :limit => 20,                   :null => false
+    t.integer  "user_id",                                    :null => false
     t.date     "date",                                       :null => false
-    t.integer  "daily_seq",                :default => 0,    :null => false
-    t.string   "summary",    :limit => 64, :default => "",   :null => false
+    t.integer  "daily_seq",                                  :null => false
+    t.string   "summary",    :limit => 64,                   :null => false
     t.boolean  "confirmed",                :default => true, :null => false
     t.datetime "created_at"
     t.datetime "updated_at"
   end
 
-  add_index "deals", ["user_id"], :name => "deals_user_id_index"
-
-  create_table "engine_schema_info", :id => false, :force => true do |t|
-    t.string  "engine_name"
-    t.integer "version"
-  end
+  add_index "deals", ["user_id"], :name => "index_deals_on_user_id"
 
   create_table "friend_permissions", :force => true do |t|
     t.integer  "user_id"
@@ -102,7 +97,7 @@ ActiveRecord::Schema.define(:version => 20100505211320) do
   end
 
   create_table "preferences", :force => true do |t|
-    t.integer "user_id",                           :default => 0,     :null => false
+    t.integer "user_id",                                              :null => false
     t.string  "deals_scroll_height", :limit => 20
     t.string  "color",               :limit => 32
     t.boolean "business_use",                      :default => false, :null => false
